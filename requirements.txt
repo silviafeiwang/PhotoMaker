@@ -11,3 +11,6 @@ omegaconf
 peft
 gradio
 insightface==0.7.3
+einops
+controlnet_aux
+onnxruntime

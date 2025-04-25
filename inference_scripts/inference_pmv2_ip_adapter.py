@@ -32,7 +32,7 @@ os.makedirs(output_dir, exist_ok=True)
 
 photomaker_ckpt = hf_hub_download(repo_id="TencentARC/PhotoMaker-V2", filename="photomaker-v2.bin", repo_type="model")
 
-prompt = "portrait photo of a woman img, colorful, perfect face, best quality"
+prompt = "portrait photo of a man img, colorful, perfect face, in professional suits, best quality"
 negative_prompt = "(asymmetry, worst quality, low quality, illustration), open mouth"
 
 # # initialize the models and pipeline
@@ -45,7 +45,7 @@ pipe.load_ip_adapter("h94/IP-Adapter", subfolder="sdxl_models", weight_name="ip-
 pipe.set_ip_adapter_scale(0.7)
 
 print("Loading images...")
-style_images = [load_image(f"./examples/statue.png")]
+style_images = [load_image(f"./examples/model.png")]
 
 ### Load PhotoMaker checkpoint
 pipe.load_photomaker_adapter(
@@ -64,7 +64,7 @@ pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config)
 pipe.enable_model_cpu_offload()
 
 ### define the input ID images
-input_folder_name = './examples/scarletthead_woman'
+input_folder_name = './examples/nikk'
 image_basename_list = os.listdir(input_folder_name)
 image_path_list = sorted([os.path.join(input_folder_name, basename) for basename in image_basename_list])
 
@@ -93,6 +93,8 @@ images = pipe(
     input_id_images=input_id_images,
     id_embeds=id_embeds,
     ip_adapter_image=[style_images],
+    num_inference_steps=50,
+    guidance_scale=3.5,
     num_images_per_prompt=2,
     start_merge_step=10,
 ).images

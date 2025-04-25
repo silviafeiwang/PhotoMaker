@@ -11,6 +11,7 @@ from huggingface_hub import hf_hub_download
 from controlnet_aux import OpenposeDetector
 from photomaker import PhotoMakerStableDiffusionXLAdapterPipeline
 from photomaker import FaceAnalysis2, analyze_faces
+from style_template import get_style_info
 
 face_detector = FaceAnalysis2(providers=['CUDAExecutionProvider'], allowed_modules=['detection', 'recognition'])
 face_detector.prepare(ctx_id=0, det_size=(640, 640))
@@ -40,17 +41,22 @@ adapter = T2IAdapter.from_pretrained(
   "TencentARC/t2i-adapter-openpose-sdxl-1.0", torch_dtype=torch_dtype,
 ).to("cuda")
 
-prompt = "instagram photo, a photo of a woman img, colorful, perfect face, natural skin, hard shadows, film grain, best quality"
-negative_prompt = "(asymmetry, worst quality, low quality, illustration, 3d, 2d, painting, cartoons, sketch), open mouth"
+# prompt = "instagram photo, a photo of a woman img, colorful, perfect face, natural skin, hard shadows, film grain, best quality"
+# negative_prompt = "(asymmetry, worst quality, low quality, illustration, 3d, 2d, painting, cartoons, sketch)"
+
+style_name = "Photographic"
+user_prompt = "lean muscular young man img, upper body naked, front view, entire body, posing for instagram, colorful, perfect face, natural skin, hard shadows, film grain, best quality, preserve face and hair details, realistic skin texture"
+prompt, negative_prompt = get_style_info(style_name, user_prompt)
+print(prompt, negative_prompt)
 
 # download an image
 pose_image = load_image(
-    "./examples/pos_ref.png"
+    "./examples/model.png"
 )
 pose_image = openpose(pose_image, detect_resolution=512, image_resolution=1024)
 
 # initialize the models and pipeline
-adapter_conditioning_scale = 0.8  # recommended for good generalization
+adapter_conditioning_scale = 0  # recommended for good generalization
 adapter_conditioning_factor = 0.8
 
 ### Load base model
@@ -77,7 +83,7 @@ pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config)
 pipe.enable_model_cpu_offload()
 
 ### define the input ID images
-input_folder_name = './examples/scarletthead_woman'
+input_folder_name = './examples/nikk'
 image_basename_list = os.listdir(input_folder_name)
 image_path_list = sorted([os.path.join(input_folder_name, basename) for basename in image_basename_list])
 
@@ -99,16 +105,26 @@ if len(id_embed_list) == 0:
 
 id_embeds = torch.stack(id_embed_list)
 
+style_strength_ratio = 20
+num_steps = 50
+start_merge_step = int(float(style_strength_ratio) / 100 * num_steps)
+if start_merge_step > 30:
+    start_merge_step = 30
 # generate image
 images = pipe(
     prompt, 
     negative_prompt=negative_prompt, 
+    width=1024,
+    height=1024,
     input_id_images=input_id_images,
     id_embeds=id_embeds,
     adapter_conditioning_scale=adapter_conditioning_scale,
+    num_inference_steps=num_steps,
+    guidance_scale=5,
     image=pose_image,
     num_images_per_prompt=2,
-    start_merge_step=10,
+    start_merge_step=start_merge_step,
+    seed=42,
 ).images
 
 for idx, img in enumerate(images): 
